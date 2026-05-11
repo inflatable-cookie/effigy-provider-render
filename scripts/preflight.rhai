@@ -52,6 +52,15 @@ fn service_needs_secret(secret, service_name) {
     false
 }
 
+fn service_selected(service_name) {
+    let selected = env("EFFIGY_RENDER_SERVICES");
+    if selected == "" {
+        return true;
+    }
+
+    str::contains("," + selected + ",", "," + service_name + ",")
+}
+
 let curl = process::run("curl", ["--version"]);
 if curl["success"] {
     checks.push(#{ name: "curl", status: "ok", target: "curl" });
@@ -109,48 +118,56 @@ if curl["success"] && api_key != "" {
     if env("EFFIGY_RENDER_PREFLIGHT_SCOPE") == "environment" {
         warnings.push("EFFIGY_RENDER_PREFLIGHT_SCOPE=environment set; service, env-var, and domain checks skipped.");
     } else {
-    for service in context["model"]["services"] {
-        let service_name = service["name"].to_string();
-        let service_id = service_id_for(service_name);
-        let service_target = service_name + " (" + service_id + ")";
-
-        if service_id == "" {
-            blockers.push("Missing " + service_id_env_name(service_name) + " for Render service '" + service_name + "'.");
-            continue;
+        if env("EFFIGY_RENDER_SERVICES") != "" {
+            warnings.push("EFFIGY_RENDER_SERVICES set; checking only selected services: " + env("EFFIGY_RENDER_SERVICES"));
         }
 
-        let service_result = api_get(api_key, "/services/" + service_id);
-        if service_result["success"] {
-            checks.push(#{ name: "service", status: "ok", target: service_target });
-        } else {
-            blockers.push("Render service '" + service_name + "' is not accessible with the configured service ID.");
-            continue;
-        }
+        for service in context["model"]["services"] {
+            let service_name = service["name"].to_string();
+            if !service_selected(service_name) {
+                continue;
+            }
 
-        for secret in context["model"]["secrets"] {
-            let secret_name = secret["name"].to_string();
-            if service_needs_secret(secret, service_name) {
-                let env_result = api_get(api_key, "/services/" + service_id + "/env-vars/" + secret_name);
-                if env_result["success"] {
-                    checks.push(#{ name: "env-var", status: "ok", target: service_name + ":" + secret_name });
-                } else {
-                    blockers.push("Render service '" + service_name + "' is missing required env var name '" + secret_name + "'.");
+            let service_id = service_id_for(service_name);
+            let service_target = service_name + " (" + service_id + ")";
+
+            if service_id == "" {
+                blockers.push("Missing " + service_id_env_name(service_name) + " for Render service '" + service_name + "'.");
+                continue;
+            }
+
+            let service_result = api_get(api_key, "/services/" + service_id);
+            if service_result["success"] {
+                checks.push(#{ name: "service", status: "ok", target: service_target });
+            } else {
+                blockers.push("Render service '" + service_name + "' is not accessible with the configured service ID.");
+                continue;
+            }
+
+            for secret in context["model"]["secrets"] {
+                let secret_name = secret["name"].to_string();
+                if service_needs_secret(secret, service_name) {
+                    let env_result = api_get(api_key, "/services/" + service_id + "/env-vars/" + secret_name);
+                    if env_result["success"] {
+                        checks.push(#{ name: "env-var", status: "ok", target: service_name + ":" + secret_name });
+                    } else {
+                        blockers.push("Render service '" + service_name + "' is missing required env var name '" + secret_name + "'.");
+                    }
+                }
+            }
+
+            for domain in context["model"]["domains"] {
+                if domain["service"].to_string() == service_name {
+                    let host = domain["host"].to_string();
+                    let domain_result = api_get(api_key, "/services/" + service_id + "/custom-domains/" + host);
+                    if domain_result["success"] {
+                        checks.push(#{ name: "domain", status: "ok", target: service_name + ":" + host });
+                    } else {
+                        blockers.push("Render service '" + service_name + "' is missing configured custom domain '" + host + "'.");
+                    }
                 }
             }
         }
-
-        for domain in context["model"]["domains"] {
-            if domain["service"].to_string() == service_name {
-                let host = domain["host"].to_string();
-                let domain_result = api_get(api_key, "/services/" + service_id + "/custom-domains/" + host);
-                if domain_result["success"] {
-                    checks.push(#{ name: "domain", status: "ok", target: service_name + ":" + host });
-                } else {
-                    blockers.push("Render service '" + service_name + "' is missing configured custom domain '" + host + "'.");
-                }
-            }
-        }
-    }
     }
 }
 

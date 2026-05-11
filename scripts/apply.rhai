@@ -53,6 +53,15 @@ fn api_post(api_key, path, body) {
     ])
 }
 
+fn service_selected(service_name) {
+    let selected = env("EFFIGY_RENDER_SERVICES");
+    if selected == "" {
+        return true;
+    }
+
+    str::contains("," + selected + ",", "," + service_name + ",")
+}
+
 let curl = process::run("curl", ["--version"]);
 if curl["success"] {
     checks.push(#{ name: "curl", status: "ok", target: "curl" });
@@ -81,6 +90,10 @@ if curl["success"] && api_key != "" {
 
     for service in context["model"]["services"] {
         let service_name = service["name"].to_string();
+        if !service_selected(service_name) {
+            continue;
+        }
+
         let service_id = service_id_for(service_name);
 
         if service_id == "" {

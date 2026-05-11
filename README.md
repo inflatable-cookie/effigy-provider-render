@@ -26,6 +26,8 @@ Set these environment variables before running `effigy deploy plan`,
   `EFFIGY_RENDER_ENVIRONMENT_ID` is accepted as a fallback.
 - `EFFIGY_RENDER_SERVICE_<service>_ID`: Render service ID for each service in
   `deploy.model.v1`.
+- `EFFIGY_RENDER_SERVICES`: optional comma-separated service allowlist for
+  smoke testing a subset, such as `front`.
 
 For an Acowtancy-style model with `front`, `admin`, `api`, and `jobs` services:
 
@@ -61,6 +63,29 @@ effigy deploy status uat
 
 `apply.rhai` remains blocked in environment-only scope. Create services and
 configure their service ID variables before testing live deployment.
+
+## One-Service Smoke
+
+After creating a single Render service in the `uat` environment, test it before
+building the full deployment shape:
+
+```text
+RENDER_API_KEY=...
+EFFIGY_RENDER_PROJECT_ID=prj-...
+EFFIGY_RENDER_ENVIRONMENT_ID_uat=env-...
+EFFIGY_RENDER_SERVICES=front
+EFFIGY_RENDER_SERVICE_front_ID=srv-...
+```
+
+Then run:
+
+```sh
+effigy deploy plan uat
+effigy deploy status uat
+```
+
+Do not set `EFFIGY_RENDER_PREFLIGHT_SCOPE=environment` for this phase. `apply`
+will trigger a deploy for the selected service only.
 
 ## API Surface
 

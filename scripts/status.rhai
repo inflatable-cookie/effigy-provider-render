@@ -42,6 +42,15 @@ fn environment_id_for(env_name) {
     env("EFFIGY_RENDER_ENVIRONMENT_ID")
 }
 
+fn service_selected(service_name) {
+    let selected = env("EFFIGY_RENDER_SERVICES");
+    if selected == "" {
+        return true;
+    }
+
+    str::contains("," + selected + ",", "," + service_name + ",")
+}
+
 let curl = process::run("curl", ["--version"]);
 if curl["success"] {
     checks.push(#{ name: "curl", status: "ok", target: "curl" });
@@ -95,27 +104,35 @@ if curl["success"] && api_key != "" {
     if env("EFFIGY_RENDER_PREFLIGHT_SCOPE") == "environment" {
         warnings.push("EFFIGY_RENDER_PREFLIGHT_SCOPE=environment set; service deploy status checks skipped.");
     } else {
-    for service in context["model"]["services"] {
-        let service_name = service["name"].to_string();
-        let service_id = service_id_for(service_name);
-
-        if service_id == "" {
-            blockers.push("Missing " + service_id_env_name(service_name) + " for Render service '" + service_name + "'.");
-            continue;
+        if env("EFFIGY_RENDER_SERVICES") != "" {
+            warnings.push("EFFIGY_RENDER_SERVICES set; checking only selected services: " + env("EFFIGY_RENDER_SERVICES"));
         }
 
-        let deploys = api_get(api_key, "/services/" + service_id + "/deploys?limit=1");
-        if deploys["success"] {
-            checks.push(#{
-                name: "latest-deploy",
-                status: "ok",
-                target: service_name + " (" + service_id + ")",
-                message: deploys["stdout"],
-            });
-        } else {
-            blockers.push("Failed to retrieve latest Render deploy for service '" + service_name + "'.");
+        for service in context["model"]["services"] {
+            let service_name = service["name"].to_string();
+            if !service_selected(service_name) {
+                continue;
+            }
+
+            let service_id = service_id_for(service_name);
+
+            if service_id == "" {
+                blockers.push("Missing " + service_id_env_name(service_name) + " for Render service '" + service_name + "'.");
+                continue;
+            }
+
+            let deploys = api_get(api_key, "/services/" + service_id + "/deploys?limit=1");
+            if deploys["success"] {
+                checks.push(#{
+                    name: "latest-deploy",
+                    status: "ok",
+                    target: service_name + " (" + service_id + ")",
+                    message: deploys["stdout"],
+                });
+            } else {
+                blockers.push("Failed to retrieve latest Render deploy for service '" + service_name + "'.");
+            }
         }
-    }
     }
 }
 
