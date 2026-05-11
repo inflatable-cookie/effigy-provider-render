@@ -61,17 +61,36 @@ fn service_needs_secret(secret, service_name) {
 }
 
 fn service_selected(provider, service_name) {
-    if provider.type_of() != "map" || !provider.contains("service_scope") {
+    if provider.type_of() != "map" {
         return true;
     }
 
-    for selected in provider["service_scope"] {
-        if selected.to_string() == service_name {
-            return true;
+    if provider.contains("service_scope") {
+        let scope = provider["service_scope"];
+        if scope.type_of() == "string" {
+            return scope.to_string() == service_name || str::contains("," + scope.to_string() + ",", "," + service_name + ",");
         }
+
+        for selected in scope {
+            if selected.to_string() == service_name {
+                return true;
+            }
+        }
+
+        return false;
     }
 
-    false
+    if provider.contains("services") && provider["services"].type_of() == "map" {
+        return provider["services"].contains(service_name);
+    }
+
+    true
+}
+
+fn skip_domain_checks(provider) {
+    provider.type_of() == "map"
+        && provider.contains("skip_domains")
+        && provider["skip_domains"].to_string() == "true"
 }
 
 let curl = process::run("curl", ["--version"]);
@@ -169,14 +188,18 @@ if curl["success"] && api_key != "" {
                 }
             }
 
-            for domain in context["model"]["domains"] {
-                if domain["service"].to_string() == service_name {
-                    let host = domain["host"].to_string();
-                    let domain_result = api_get(api_key, "/services/" + service_id + "/custom-domains/" + host);
-                    if domain_result["success"] {
-                        checks.push(#{ name: "domain", status: "ok", target: service_name + ":" + host });
-                    } else {
-                        blockers.push("Render service '" + service_name + "' is missing configured custom domain '" + host + "'.");
+            if skip_domain_checks(provider) {
+                warnings.push("provider.skip_domains=true set; custom domain checks skipped.");
+            } else {
+                for domain in context["model"]["domains"] {
+                    if domain["service"].to_string() == service_name {
+                        let host = domain["host"].to_string();
+                        let domain_result = api_get(api_key, "/services/" + service_id + "/custom-domains/" + host);
+                        if domain_result["success"] {
+                            checks.push(#{ name: "domain", status: "ok", target: service_name + ":" + host });
+                        } else {
+                            blockers.push("Render service '" + service_name + "' is missing configured custom domain '" + host + "'.");
+                        }
                     }
                 }
             }

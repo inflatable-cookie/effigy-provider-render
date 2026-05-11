@@ -51,17 +51,30 @@ fn api_get(api_key, path) {
 }
 
 fn service_selected(provider, service_name) {
-    if provider.type_of() != "map" || !provider.contains("service_scope") {
+    if provider.type_of() != "map" {
         return true;
     }
 
-    for selected in provider["service_scope"] {
-        if selected.to_string() == service_name {
-            return true;
+    if provider.contains("service_scope") {
+        let scope = provider["service_scope"];
+        if scope.type_of() == "string" {
+            return scope.to_string() == service_name || str::contains("," + scope.to_string() + ",", "," + service_name + ",");
         }
+
+        for selected in scope {
+            if selected.to_string() == service_name {
+                return true;
+            }
+        }
+
+        return false;
     }
 
-    false
+    if provider.contains("services") && provider["services"].type_of() == "map" {
+        return provider["services"].contains(service_name);
+    }
+
+    true
 }
 
 let curl = process::run("curl", ["--version"]);

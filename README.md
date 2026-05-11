@@ -24,6 +24,7 @@ Render IDs are configured in `[deploy.<env>.provider]`:
 
 ```toml
 [deploy.uat.provider]
+adapter = "render"
 project_id = "prj-..."
 environment_id = "env-..."
 services = { front = "srv-...", admin = "srv-...", api = "srv-..." }
@@ -33,9 +34,11 @@ For service-subset smoke testing:
 
 ```toml
 [deploy.uat.provider]
+adapter = "render"
 project_id = "prj-..."
 environment_id = "env-..."
 service_scope = ["front"]
+skip_domains = true
 services = { front = "srv-..." }
 ```
 
@@ -86,9 +89,11 @@ And configure:
 
 ```toml
 [deploy.uat.provider]
+adapter = "render"
 project_id = "prj-..."
 environment_id = "env-..."
 service_scope = ["front"]
+skip_domains = true
 services = { front = "srv-..." }
 ```
 
@@ -101,6 +106,9 @@ effigy deploy status uat
 
 Do not set `preflight_scope = "environment"` for this phase. `apply` will
 trigger a deploy for the selected service only.
+
+`skip_domains = true` is for smoke services that do not carry the real app
+domains yet. Remove it for UAT/production validation.
 
 ## API Surface
 
