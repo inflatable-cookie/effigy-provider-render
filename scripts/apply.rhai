@@ -67,7 +67,18 @@ if api_key == "" {
     checks.push(#{ name: "auth-token", status: "configured", target: "RENDER_API_KEY" });
 }
 
+if env("EFFIGY_RENDER_PREFLIGHT_SCOPE") == "environment" {
+    blockers.push("EFFIGY_RENDER_PREFLIGHT_SCOPE=environment is for smoke validation only; configure service IDs before deploy apply.");
+}
+
 if curl["success"] && api_key != "" {
+    let auth_result = api_get(api_key, "/owners?limit=1");
+    if auth_result["success"] {
+        checks.push(#{ name: "api-auth", status: "ok", target: "Render API" });
+    } else {
+        blockers.push("RENDER_API_KEY could not authenticate with the Render API.");
+    }
+
     for service in context["model"]["services"] {
         let service_name = service["name"].to_string();
         let service_id = service_id_for(service_name);

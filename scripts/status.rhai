@@ -33,6 +33,15 @@ fn api_get(api_key, path) {
     ])
 }
 
+fn environment_id_for(env_name) {
+    let value = env("EFFIGY_RENDER_ENVIRONMENT_ID_" + env_name);
+    if value != "" {
+        return value;
+    }
+
+    env("EFFIGY_RENDER_ENVIRONMENT_ID")
+}
+
 let curl = process::run("curl", ["--version"]);
 if curl["success"] {
     checks.push(#{ name: "curl", status: "ok", target: "curl" });
@@ -48,6 +57,44 @@ if api_key == "" {
 }
 
 if curl["success"] && api_key != "" {
+    let auth_result = api_get(api_key, "/owners?limit=1");
+    if auth_result["success"] {
+        checks.push(#{ name: "api-auth", status: "ok", target: "Render API" });
+    } else {
+        blockers.push("RENDER_API_KEY could not authenticate with the Render API.");
+    }
+
+    let project_id = env("EFFIGY_RENDER_PROJECT_ID");
+    if project_id != "" {
+        let project_result = api_get(api_key, "/projects/" + project_id);
+        if project_result["success"] {
+            checks.push(#{
+                name: "project",
+                status: "ok",
+                target: context["provider_project"] + " (" + project_id + ")",
+            });
+        } else {
+            blockers.push("Render project '" + context["provider_project"] + "' is not accessible with EFFIGY_RENDER_PROJECT_ID.");
+        }
+    }
+
+    let environment_id = environment_id_for(context["env"]);
+    if environment_id != "" {
+        let environment_result = api_get(api_key, "/environments/" + environment_id);
+        if environment_result["success"] {
+            checks.push(#{
+                name: "environment",
+                status: "ok",
+                target: context["env"] + " (" + environment_id + ")",
+            });
+        } else {
+            blockers.push("Render environment '" + context["env"] + "' is not accessible with the configured environment ID.");
+        }
+    }
+
+    if env("EFFIGY_RENDER_PREFLIGHT_SCOPE") == "environment" {
+        warnings.push("EFFIGY_RENDER_PREFLIGHT_SCOPE=environment set; service deploy status checks skipped.");
+    } else {
     for service in context["model"]["services"] {
         let service_name = service["name"].to_string();
         let service_id = service_id_for(service_name);
@@ -68,6 +115,7 @@ if curl["success"] && api_key != "" {
         } else {
             blockers.push("Failed to retrieve latest Render deploy for service '" + service_name + "'.");
         }
+    }
     }
 }
 
