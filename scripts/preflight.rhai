@@ -4,18 +4,35 @@ let checks = [];
 let warnings = [];
 let blockers = [];
 
-fn service_id_env_name(service_name) {
-    "EFFIGY_RENDER_SERVICE_" + service_name + "_ID"
-}
+let provider_config = context["provider_config"];
 
-fn service_id_for(service_name) {
-    let primary = service_id_env_name(service_name);
-    let value = env(primary);
-    if value != "" {
-        return value;
+fn config_string(config, key) {
+    if config.type_of() != "map" {
+        return "";
     }
 
-    env("RENDER_SERVICE_" + service_name + "_ID")
+    if !config.contains(key) {
+        return "";
+    }
+
+    config[key].to_string()
+}
+
+fn service_id_for(config, service_name) {
+    if config.type_of() != "map" {
+        return "";
+    }
+
+    if !config.contains("services") {
+        return "";
+    }
+
+    let services = config["services"];
+    if services.type_of() != "map" || !services.contains(service_name) {
+        return "";
+    }
+
+    services[service_name].to_string()
 }
 
 fn api_get(api_key, path) {
@@ -33,15 +50,6 @@ fn api_get(api_key, path) {
     ])
 }
 
-fn environment_id_for(env_name) {
-    let value = env("EFFIGY_RENDER_ENVIRONMENT_ID_" + env_name);
-    if value != "" {
-        return value;
-    }
-
-    env("EFFIGY_RENDER_ENVIRONMENT_ID")
-}
-
 fn service_needs_secret(secret, service_name) {
     for target in secret["services"] {
         if target.to_string() == service_name {
@@ -53,12 +61,17 @@ fn service_needs_secret(secret, service_name) {
 }
 
 fn service_selected(service_name) {
-    let selected = env("EFFIGY_RENDER_SERVICES");
-    if selected == "" {
+    if provider_config.type_of() != "map" || !provider_config.contains("service_scope") {
         return true;
     }
 
-    str::contains("," + selected + ",", "," + service_name + ",")
+    for selected in provider_config["service_scope"] {
+        if selected.to_string() == service_name {
+            return true;
+        }
+    }
+
+    false
 }
 
 let curl = process::run("curl", ["--version"]);
@@ -83,7 +96,7 @@ if curl["success"] && api_key != "" {
         blockers.push("RENDER_API_KEY could not authenticate with the Render API.");
     }
 
-    let project_id = env("EFFIGY_RENDER_PROJECT_ID");
+    let project_id = config_string(provider_config, "project_id");
     if project_id != "" {
         let project_result = api_get(api_key, "/projects/" + project_id);
         if project_result["success"] {
@@ -93,13 +106,13 @@ if curl["success"] && api_key != "" {
                 target: context["provider_project"] + " (" + project_id + ")",
             });
         } else {
-            blockers.push("Render project '" + context["provider_project"] + "' is not accessible with EFFIGY_RENDER_PROJECT_ID.");
+            blockers.push("Render project '" + context["provider_project"] + "' is not accessible with provider_config.project_id.");
         }
     } else {
-        warnings.push("EFFIGY_RENDER_PROJECT_ID is not set; project-level Render validation skipped.");
+        blockers.push("Render provider config requires `project_id`.");
     }
 
-    let environment_id = environment_id_for(context["env"]);
+    let environment_id = config_string(provider_config, "environment_id");
     if environment_id != "" {
         let environment_result = api_get(api_key, "/environments/" + environment_id);
         if environment_result["success"] {
@@ -112,14 +125,14 @@ if curl["success"] && api_key != "" {
             blockers.push("Render environment '" + context["env"] + "' is not accessible with the configured environment ID.");
         }
     } else {
-        warnings.push("EFFIGY_RENDER_ENVIRONMENT_ID_" + context["env"] + " is not set; environment-level Render validation skipped.");
+        blockers.push("Render provider config requires `environment_id`.");
     }
 
-    if env("EFFIGY_RENDER_PREFLIGHT_SCOPE") == "environment" {
-        warnings.push("EFFIGY_RENDER_PREFLIGHT_SCOPE=environment set; service, env-var, and domain checks skipped.");
+    if config_string(provider_config, "preflight_scope") == "environment" {
+        warnings.push("provider_config.preflight_scope=environment set; service, env-var, and domain checks skipped.");
     } else {
-        if env("EFFIGY_RENDER_SERVICES") != "" {
-            warnings.push("EFFIGY_RENDER_SERVICES set; checking only selected services: " + env("EFFIGY_RENDER_SERVICES"));
+        if provider_config.type_of() == "map" && provider_config.contains("service_scope") {
+            warnings.push("provider_config.service_scope set; checking only selected services.");
         }
 
         for service in context["model"]["services"] {
@@ -128,11 +141,11 @@ if curl["success"] && api_key != "" {
                 continue;
             }
 
-            let service_id = service_id_for(service_name);
+            let service_id = service_id_for(provider_config, service_name);
             let service_target = service_name + " (" + service_id + ")";
 
             if service_id == "" {
-                blockers.push("Missing " + service_id_env_name(service_name) + " for Render service '" + service_name + "'.");
+                blockers.push("Render provider config is missing services." + service_name + ".");
                 continue;
             }
 

@@ -19,28 +19,31 @@ Set these environment variables before running `effigy deploy plan`,
 `effigy deploy status`, or `effigy deploy apply` for a Render target:
 
 - `RENDER_API_KEY`: Render API key. The scripts never write it to reports.
-- `EFFIGY_RENDER_PROJECT_ID`: optional Render project ID. When set, preflight
-  verifies the project exists.
-- `EFFIGY_RENDER_ENVIRONMENT_ID_<env>`: optional Render environment ID for a
-  specific Effigy deploy env, such as `EFFIGY_RENDER_ENVIRONMENT_ID_uat`.
-  `EFFIGY_RENDER_ENVIRONMENT_ID` is accepted as a fallback.
-- `EFFIGY_RENDER_SERVICE_<service>_ID`: Render service ID for each service in
-  `deploy.model.v1`.
-- `EFFIGY_RENDER_SERVICES`: optional comma-separated service allowlist for
-  smoke testing a subset, such as `front`.
+
+Render IDs are configured in `[deploy.<env>.provider_config]`:
+
+```toml
+[deploy.uat.provider_config]
+project_id = "prj-..."
+environment_id = "env-..."
+services = { front = "srv-...", admin = "srv-...", api = "srv-..." }
+```
+
+For service-subset smoke testing:
+
+```toml
+[deploy.uat.provider_config]
+project_id = "prj-..."
+environment_id = "env-..."
+service_scope = ["front"]
+services = { front = "srv-..." }
+```
 
 For an Acowtancy-style model with `front`, `admin`, `api`, and `jobs` services:
 
 ```text
 RENDER_API_KEY=...
-EFFIGY_RENDER_SERVICE_front_ID=srv-...
-EFFIGY_RENDER_SERVICE_admin_ID=srv-...
-EFFIGY_RENDER_SERVICE_api_ID=srv-...
-EFFIGY_RENDER_SERVICE_jobs_ID=srv-...
 ```
-
-The service suffix is the exact service name from the Effigy deploy model. A
-fallback `RENDER_SERVICE_<service>_ID` name is also accepted.
 
 ## Environment-Only Smoke
 
@@ -49,9 +52,15 @@ without pretending a deploy can run:
 
 ```text
 RENDER_API_KEY=...
-EFFIGY_RENDER_PROJECT_ID=prj-...
-EFFIGY_RENDER_ENVIRONMENT_ID_uat=env-...
-EFFIGY_RENDER_PREFLIGHT_SCOPE=environment
+```
+
+And configure:
+
+```toml
+[deploy.uat.provider_config]
+project_id = "prj-..."
+environment_id = "env-..."
+preflight_scope = "environment"
 ```
 
 Then run:
@@ -71,10 +80,16 @@ building the full deployment shape:
 
 ```text
 RENDER_API_KEY=...
-EFFIGY_RENDER_PROJECT_ID=prj-...
-EFFIGY_RENDER_ENVIRONMENT_ID_uat=env-...
-EFFIGY_RENDER_SERVICES=front
-EFFIGY_RENDER_SERVICE_front_ID=srv-...
+```
+
+And configure:
+
+```toml
+[deploy.uat.provider_config]
+project_id = "prj-..."
+environment_id = "env-..."
+service_scope = ["front"]
+services = { front = "srv-..." }
 ```
 
 Then run:
@@ -84,8 +99,8 @@ effigy deploy plan uat
 effigy deploy status uat
 ```
 
-Do not set `EFFIGY_RENDER_PREFLIGHT_SCOPE=environment` for this phase. `apply`
-will trigger a deploy for the selected service only.
+Do not set `preflight_scope = "environment"` for this phase. `apply` will
+trigger a deploy for the selected service only.
 
 ## API Surface
 

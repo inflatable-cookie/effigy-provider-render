@@ -5,18 +5,35 @@ let warnings = [];
 let blockers = [];
 let files = [];
 
-fn service_id_env_name(service_name) {
-    "EFFIGY_RENDER_SERVICE_" + service_name + "_ID"
-}
+let provider_config = context["provider_config"];
 
-fn service_id_for(service_name) {
-    let primary = service_id_env_name(service_name);
-    let value = env(primary);
-    if value != "" {
-        return value;
+fn config_string(config, key) {
+    if config.type_of() != "map" {
+        return "";
     }
 
-    env("RENDER_SERVICE_" + service_name + "_ID")
+    if !config.contains(key) {
+        return "";
+    }
+
+    config[key].to_string()
+}
+
+fn service_id_for(config, service_name) {
+    if config.type_of() != "map" {
+        return "";
+    }
+
+    if !config.contains("services") {
+        return "";
+    }
+
+    let services = config["services"];
+    if services.type_of() != "map" || !services.contains(service_name) {
+        return "";
+    }
+
+    services[service_name].to_string()
 }
 
 fn api_get(api_key, path) {
@@ -54,12 +71,17 @@ fn api_post(api_key, path, body) {
 }
 
 fn service_selected(service_name) {
-    let selected = env("EFFIGY_RENDER_SERVICES");
-    if selected == "" {
+    if provider_config.type_of() != "map" || !provider_config.contains("service_scope") {
         return true;
     }
 
-    str::contains("," + selected + ",", "," + service_name + ",")
+    for selected in provider_config["service_scope"] {
+        if selected.to_string() == service_name {
+            return true;
+        }
+    }
+
+    false
 }
 
 let curl = process::run("curl", ["--version"]);
@@ -76,8 +98,8 @@ if api_key == "" {
     checks.push(#{ name: "auth-token", status: "configured", target: "RENDER_API_KEY" });
 }
 
-if env("EFFIGY_RENDER_PREFLIGHT_SCOPE") == "environment" {
-    blockers.push("EFFIGY_RENDER_PREFLIGHT_SCOPE=environment is for smoke validation only; configure service IDs before deploy apply.");
+if config_string(provider_config, "preflight_scope") == "environment" {
+    blockers.push("provider_config.preflight_scope=environment is for smoke validation only; configure service IDs before deploy apply.");
 }
 
 if curl["success"] && api_key != "" {
@@ -94,10 +116,10 @@ if curl["success"] && api_key != "" {
             continue;
         }
 
-        let service_id = service_id_for(service_name);
+        let service_id = service_id_for(provider_config, service_name);
 
         if service_id == "" {
-            blockers.push("Missing " + service_id_env_name(service_name) + " for Render service '" + service_name + "'.");
+            blockers.push("Render provider config is missing services." + service_name + ".");
             continue;
         }
 
