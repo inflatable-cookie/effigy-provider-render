@@ -5,7 +5,7 @@ let warnings = [];
 let blockers = [];
 let files = [];
 
-let provider_config = context["provider_config"];
+let provider = context["provider"];
 
 fn config_string(config, key) {
     if config.type_of() != "map" {
@@ -70,12 +70,12 @@ fn api_post(api_key, path, body) {
     ])
 }
 
-fn service_selected(service_name) {
-    if provider_config.type_of() != "map" || !provider_config.contains("service_scope") {
+fn service_selected(provider, service_name) {
+    if provider.type_of() != "map" || !provider.contains("service_scope") {
         return true;
     }
 
-    for selected in provider_config["service_scope"] {
+    for selected in provider["service_scope"] {
         if selected.to_string() == service_name {
             return true;
         }
@@ -98,8 +98,8 @@ if api_key == "" {
     checks.push(#{ name: "auth-token", status: "configured", target: "RENDER_API_KEY" });
 }
 
-if config_string(provider_config, "preflight_scope") == "environment" {
-    blockers.push("provider_config.preflight_scope=environment is for smoke validation only; configure service IDs before deploy apply.");
+if config_string(provider, "preflight_scope") == "environment" {
+    blockers.push("provider.preflight_scope=environment is for smoke validation only; configure service IDs before deploy apply.");
 }
 
 if curl["success"] && api_key != "" {
@@ -112,14 +112,14 @@ if curl["success"] && api_key != "" {
 
     for service in context["model"]["services"] {
         let service_name = service["name"].to_string();
-        if !service_selected(service_name) {
+        if !service_selected(provider, service_name) {
             continue;
         }
 
-        let service_id = service_id_for(provider_config, service_name);
+        let service_id = service_id_for(provider, service_name);
 
         if service_id == "" {
-            blockers.push("Render provider config is missing services." + service_name + ".");
+            blockers.push("Render provider is missing services." + service_name + ".");
             continue;
         }
 

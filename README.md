@@ -20,10 +20,10 @@ Set these environment variables before running `effigy deploy plan`,
 
 - `RENDER_API_KEY`: Render API key. The scripts never write it to reports.
 
-Render IDs are configured in `[deploy.<env>.provider_config]`:
+Render IDs are configured in `[deploy.<env>.provider]`:
 
 ```toml
-[deploy.uat.provider_config]
+[deploy.uat.provider]
 project_id = "prj-..."
 environment_id = "env-..."
 services = { front = "srv-...", admin = "srv-...", api = "srv-..." }
@@ -32,7 +32,7 @@ services = { front = "srv-...", admin = "srv-...", api = "srv-..." }
 For service-subset smoke testing:
 
 ```toml
-[deploy.uat.provider_config]
+[deploy.uat.provider]
 project_id = "prj-..."
 environment_id = "env-..."
 service_scope = ["front"]
@@ -57,7 +57,7 @@ RENDER_API_KEY=...
 And configure:
 
 ```toml
-[deploy.uat.provider_config]
+[deploy.uat.provider]
 project_id = "prj-..."
 environment_id = "env-..."
 preflight_scope = "environment"
@@ -85,7 +85,7 @@ RENDER_API_KEY=...
 And configure:
 
 ```toml
-[deploy.uat.provider_config]
+[deploy.uat.provider]
 project_id = "prj-..."
 environment_id = "env-..."
 service_scope = ["front"]

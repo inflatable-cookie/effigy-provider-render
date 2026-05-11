@@ -4,7 +4,7 @@ let checks = [];
 let warnings = [];
 let blockers = [];
 
-let provider_config = context["provider_config"];
+let provider = context["provider"];
 
 fn config_string(config, key) {
     if config.type_of() != "map" {
@@ -50,12 +50,12 @@ fn api_get(api_key, path) {
     ])
 }
 
-fn service_selected(service_name) {
-    if provider_config.type_of() != "map" || !provider_config.contains("service_scope") {
+fn service_selected(provider, service_name) {
+    if provider.type_of() != "map" || !provider.contains("service_scope") {
         return true;
     }
 
-    for selected in provider_config["service_scope"] {
+    for selected in provider["service_scope"] {
         if selected.to_string() == service_name {
             return true;
         }
@@ -86,7 +86,7 @@ if curl["success"] && api_key != "" {
         blockers.push("RENDER_API_KEY could not authenticate with the Render API.");
     }
 
-    let project_id = config_string(provider_config, "project_id");
+    let project_id = config_string(provider, "project_id");
     if project_id != "" {
         let project_result = api_get(api_key, "/projects/" + project_id);
         if project_result["success"] {
@@ -96,13 +96,13 @@ if curl["success"] && api_key != "" {
                 target: context["provider_project"] + " (" + project_id + ")",
             });
         } else {
-            blockers.push("Render project '" + context["provider_project"] + "' is not accessible with provider_config.project_id.");
+            blockers.push("Render project '" + context["provider_project"] + "' is not accessible with provider.project_id.");
         }
     } else {
-        blockers.push("Render provider config requires `project_id`.");
+        blockers.push("Render provider requires `project_id`.");
     }
 
-    let environment_id = config_string(provider_config, "environment_id");
+    let environment_id = config_string(provider, "environment_id");
     if environment_id != "" {
         let environment_result = api_get(api_key, "/environments/" + environment_id);
         if environment_result["success"] {
@@ -115,26 +115,26 @@ if curl["success"] && api_key != "" {
             blockers.push("Render environment '" + context["env"] + "' is not accessible with the configured environment ID.");
         }
     } else {
-        blockers.push("Render provider config requires `environment_id`.");
+        blockers.push("Render provider requires `environment_id`.");
     }
 
-    if config_string(provider_config, "preflight_scope") == "environment" {
-        warnings.push("provider_config.preflight_scope=environment set; service deploy status checks skipped.");
+    if config_string(provider, "preflight_scope") == "environment" {
+        warnings.push("provider.preflight_scope=environment set; service deploy status checks skipped.");
     } else {
-        if provider_config.type_of() == "map" && provider_config.contains("service_scope") {
-            warnings.push("provider_config.service_scope set; checking only selected services.");
+        if provider.type_of() == "map" && provider.contains("service_scope") {
+            warnings.push("provider.service_scope set; checking only selected services.");
         }
 
         for service in context["model"]["services"] {
             let service_name = service["name"].to_string();
-            if !service_selected(service_name) {
+            if !service_selected(provider, service_name) {
                 continue;
             }
 
-            let service_id = service_id_for(provider_config, service_name);
+            let service_id = service_id_for(provider, service_name);
 
             if service_id == "" {
-                blockers.push("Render provider config is missing services." + service_name + ".");
+                blockers.push("Render provider is missing services." + service_name + ".");
                 continue;
             }
 
