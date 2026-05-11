@@ -1,0 +1,21 @@
+[provider]
+schema = "effigy.deploy-provider.v1"
+name = "render"
+display_name = "Render"
+version = "0.1.0"
+
+[capabilities]
+checklist = "scripts/checklist.rhai"
+export = "scripts/export.rhai"
+validate = "scripts/validate.rhai"
+preflight = "scripts/preflight.rhai"
+apply = "scripts/apply.rhai"
+status = "scripts/status.rhai"
+
+[policy]
+creates_projects = false
+creates_services = false
+creates_resources = false
+creates_variables = false
+creates_domains = false
+prints_secret_values = false
