@@ -18,7 +18,15 @@ deploys for services that already exist.
 Set these environment variables before running `effigy deploy plan`,
 `effigy deploy status`, or `effigy deploy apply` for a Render target:
 
-- `RENDER_API_KEY`: Render API key. The scripts never write it to reports.
+- `render_api_key`: preferred Effigy secret declaration with
+  `targets = ["deploy"]`
+- `RENDER_API_KEY`: compatibility environment fallback
+
+```toml
+[secrets.keys.render_api_key]
+required = false
+targets = ["deploy"]
+```
 
 Render IDs are configured in `[deploy.<env>.provider]`:
 
@@ -29,6 +37,10 @@ project_id = "prj-..."
 environment_id = "env-..."
 services = { front = "srv-...", admin = "srv-...", api = "srv-..." }
 ```
+
+Set app-owned non-secret host variables directly on each selected Render
+service. Underlay apps use `ENVIRONMENT_NAME=uat` or
+`ENVIRONMENT_NAME=production` to select the matching config overlay.
 
 For service-subset smoke testing:
 

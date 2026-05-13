@@ -50,6 +50,23 @@ fn api_get(api_key, path) {
     ])
 }
 
+fn render_api_key() {
+    let api_key = env("RENDER_API_KEY");
+    if api_key != "" {
+        return api_key;
+    }
+
+    try {
+        if effigy::has_secret("render_api_key") {
+            return effigy::secret("render_api_key");
+        }
+    } catch (error) {
+        return "";
+    }
+
+    ""
+}
+
 fn service_selected(provider, service_name) {
     if provider.type_of() != "map" {
         return true;
@@ -84,11 +101,11 @@ if curl["success"] {
     blockers.push("Render provider requires curl on PATH.");
 }
 
-let api_key = env("RENDER_API_KEY");
+let api_key = render_api_key();
 if api_key == "" {
-    blockers.push("RENDER_API_KEY is required for Render status checks.");
+    blockers.push("Render API credentials are required via Effigy secret `render_api_key` or compatibility env `RENDER_API_KEY`.");
 } else {
-    checks.push(#{ name: "auth-token", status: "configured", target: "RENDER_API_KEY" });
+    checks.push(#{ name: "auth-token", status: "configured", target: "render_api_key" });
 }
 
 if curl["success"] && api_key != "" {
