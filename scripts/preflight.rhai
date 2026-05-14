@@ -6,28 +6,28 @@ let blockers = [];
 
 let provider = context["provider"];
 
-fn config_string(config, key) {
-    if config.type_of() != "map" {
+fn config_string(provider_config, key) {
+    if provider_config.type_of() != "map" {
         return "";
     }
 
-    if !config.contains(key) {
+    if !provider_config.contains(key) {
         return "";
     }
 
-    config[key].to_string()
+    provider_config[key].to_string()
 }
 
-fn service_id_for(config, service_name) {
-    if config.type_of() != "map" {
+fn service_id_for(provider_config, service_name) {
+    if provider_config.type_of() != "map" {
         return "";
     }
 
-    if !config.contains("services") {
+    if !provider_config.contains("services") {
         return "";
     }
 
-    let services = config["services"];
+    let services = provider_config["services"];
     if services.type_of() != "map" || !services.contains(service_name) {
         return "";
     }
