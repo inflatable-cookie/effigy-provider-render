@@ -57,8 +57,8 @@ fn render_api_key() {
     }
 
     try {
-        if effigy::has_secret("render_api_key") {
-            return effigy::secret("render_api_key");
+        if secrets::has("render_api_key") {
+            return secrets::get("render_api_key");
         }
     } catch (error) {
         return "";
